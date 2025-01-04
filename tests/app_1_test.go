@@ -10,18 +10,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
 
 func getURL(path string) string {
+	envMap, _ := godotenv.Read("../.env")
 	port := Port
-	envPort := os.Getenv("TODO_PORT")
+	envPort := envMap["TODO_PORT"]
 	if len(envPort) > 0 {
 		if eport, err := strconv.ParseInt(envPort, 10, 32); err == nil {
 			port = int(eport)
 		}
 	}
-	path = strings.TrimPrefix(strings.ReplaceAll(path, `\`, `/`), `../web/`)
+	path = strings.TrimPrefix(strings.ReplaceAll(path, `\`, `/`), `../ui/`)
 	return fmt.Sprintf("http://localhost:%d/%s", port, path)
 }
 
@@ -68,5 +70,5 @@ func TestApp(t *testing.T) {
 		assert.Equal(t, len(fbody), len(body), `сервер возвращает для %s данные другого размера`, fname)
 		return nil
 	}
-	assert.NoError(t, walkDir("../web", cmp))
+	assert.NoError(t, walkDir("../ui", cmp))
 }
