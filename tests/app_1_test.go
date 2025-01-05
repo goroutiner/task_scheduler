@@ -6,24 +6,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 )
 
 func getURL(path string) string {
-	envMap, _ := godotenv.Read("../.env")
 	port := Port
-	envPort := envMap["TODO_PORT"]
-	if len(envPort) > 0 {
-		if eport, err := strconv.ParseInt(envPort, 10, 32); err == nil {
-			port = int(eport)
-		}
-	}
-	path = strings.TrimPrefix(strings.ReplaceAll(path, `\`, `/`), `../ui/`)
+
+	path = strings.TrimPrefix(strings.ReplaceAll(path, `\`, `/`), "../ui/")
 	return fmt.Sprintf("http://localhost:%d/%s", port, path)
 }
 

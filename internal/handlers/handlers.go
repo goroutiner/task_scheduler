@@ -28,9 +28,9 @@ type Result struct {
 	Token string `json:"token,omitempty"`
 }
 
-var db *sql.DB
+var Db *sql.DB
 
-// Authorization получает пароль через https, и если он является валидным, 
+// Authorization получает пароль через https, и если он является валидным,
 // то отправляет http ответ, содержащий сгенерированный токен.
 func Authorization(w http.ResponseWriter, r *http.Request) {
 	var (
@@ -47,6 +47,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
 		log.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		return
 	}
@@ -55,6 +56,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
 		log.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		return
 	}
@@ -63,6 +65,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
 		log.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		return
 	}
@@ -72,8 +75,8 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-// GetNextDate получает занчения параметров now, date, repeat из парметров запроса и 
-// с их помощью возвращает http ответ, содержащий следующую ближайшую дату. 
+// GetNextDate получает занчения параметров now, date, repeat из парметров запроса и
+// с их помощью возвращает http ответ, содержащий следующую ближайшую дату.
 func GetNextDate(w http.ResponseWriter, r *http.Request) {
 	now := r.FormValue("now")
 	date := r.FormValue("date")
@@ -99,29 +102,16 @@ func GetNextDate(w http.ResponseWriter, r *http.Request) {
 
 // GetTasks возвращает http ответ, содержащий список всех сущетсвующих задач.
 func GetTasks(w http.ResponseWriter, r *http.Request) {
-	if !services.CheckJWT(w, r) {
-		http.Error(w, "Authentification required", http.StatusUnauthorized)
-		return
-	}
-
 	var (
 		err   error
 		tasks = []Task{}
 		resp  []byte
 	)
 
-	db, err = sql.Open("sqlite", "../cmd/scheduler.db")
+	tasksTmp, err := services.GetTasks(Db, r)
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
-		w.Write(resp)
-		log.Println(err.Error())
-		return
-	}
-	defer db.Close()
-
-	tasksTmp, err := services.GetTasks(db, r)
-	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())
 		return
@@ -137,80 +127,73 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 // DoneTask завершает или обноввляет дату задачи, если поле repeat не пустое и
-// вохвращает пустой json http ответа в случае успешного завершения. 
+// возвращает пустой json http ответа в случае успешного завершения.
 func DoneTask(w http.ResponseWriter, r *http.Request) {
-	if !services.CheckJWT(w, r) {
-		http.Error(w, "Authentification required", http.StatusUnauthorized)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		log.Println("Method not allowed")
 		return
 	}
 
 	var (
-		task Task
+		task database.Task
 		resp []byte
 		id   string
-		row  *sql.Row
 		err  error
 	)
 
-	db, err = sql.Open("sqlite", "../cmd/scheduler.db")
-	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
-		w.Write(resp)
-		log.Println(err.Error())
-		return
-	}
-	defer db.Close()
-
 	if r.FormValue("id") == "" {
 		resp, _ = json.Marshal(Result{Error: "id не указан или указан некорректно"})
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
 		log.Println("Id не указан или указан некорректно")
 		return
 	}
 
 	id = r.FormValue("id")
-	row = database.SearchTask(db, id)
-	err = row.Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat)
+	task, err = database.SearchTask(Db, id)
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())
 		return
 	}
 
-	if r.Method == http.MethodPost {
-		if task.Repeat != "" {
-			nextDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
-			if err != nil {
-				resp, _ = json.Marshal(Result{Error: err.Error()})
-				w.Write(resp)
-				log.Println(err.Error())
-				return
-			}
+	if task.Repeat != "" {
+		nextDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
+		if err != nil {
+			resp, _ = json.Marshal(Result{Error: err.Error()})
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(resp)
+			log.Println(err.Error())
+			return
+		}
 
-			updateTask := &database.Task{
-				Id:      task.Id,
-				Date:    nextDate,
-				Title:   task.Title,
-				Comment: task.Comment,
-				Repeat:  task.Repeat,
-			}
+		updateTask := &database.Task{
+			Id:      task.Id,
+			Date:    nextDate,
+			Title:   task.Title,
+			Comment: task.Comment,
+			Repeat:  task.Repeat,
+		}
 
-			err = updateTask.UpdateTask(db)
-			if err != nil {
-				resp, _ = json.Marshal(Result{Error: err.Error()})
-				w.Write(resp)
-				log.Println(err.Error())
-				return
-			}
-		} else {
-			err = database.DeleteTask(db, id)
-			if err != nil {
-				resp, _ = json.Marshal(Result{Error: err.Error()})
-				w.Write(resp)
-				log.Println(err.Error())
-				return
-			}
+		err = updateTask.UpdateTask(Db)
+		if err != nil {
+			resp, _ = json.Marshal(Result{Error: err.Error()})
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(resp)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		err = database.DeleteTask(Db, id)
+		if err != nil {
+			resp, _ = json.Marshal(Result{Error: err.Error()})
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write(resp)
+			log.Println(err.Error())
+			return
 		}
 	}
 
@@ -224,41 +207,28 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 // и возвращает пустой json http ответа в случае успешного завершения изменения задачи
 // с помощью метода PUT и DELETE.
 func UpdateTasks(w http.ResponseWriter, r *http.Request) {
-	if !services.CheckJWT(w, r) {
-		http.Error(w, "Authentification required", http.StatusUnauthorized)
-		return
-	}
-
 	var (
 		id   string
 		resp []byte
 		err  error
-		task services.Task
+		task database.Task
 	)
-
-	db, err = sql.Open("sqlite", "../cmd/scheduler.db")
-	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
-		w.Write(resp)
-		log.Println(err.Error())
-		return
-	}
-	defer db.Close()
 
 	switch r.Method {
 	case http.MethodPost:
-		id, err = services.PostTask(db, w, r)
+		id, err = services.PostTask(Db, w, r)
 		resp, _ = json.Marshal(Result{Id: id})
 	case http.MethodGet:
-		task, err = services.GetTask(db, w, r)
+		task, err = services.GetTask(Db, w, r)
 		resp, _ = json.Marshal(Task{Id: task.Id, Date: task.Date, Title: task.Title, Comment: task.Comment, Repeat: task.Repeat})
 	case http.MethodPut:
-		resp, err = services.EditTask(db, w, r)
+		resp, err = services.EditTask(Db, w, r)
 	case http.MethodDelete:
-		resp, err = services.DeleteTask(db, w, r)
+		resp, err = services.DeleteTask(Db, w, r)
 	}
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())
 		return
