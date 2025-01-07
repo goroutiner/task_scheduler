@@ -28,7 +28,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-go@v4
       with:
-        fetch-depth: '0'
+        fetch-depth: 0
     - name: Startup
       run: |
         go build ./cmd/main.go
