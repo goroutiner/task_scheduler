@@ -1,0 +1,47 @@
+name: Scheduler
+
+on:
+  push:
+    branches: ["main", "ci-cd"]
+  pull_request:
+    branches: [ "ci-cd" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+      with:
+        cache-dependency-path: |
+          **/go.mod 
+    - name: Build
+      run: |
+        go build ./cmd/main.go
+
+  tests:
+    # Задание "tests" зависит от задания "build" и будет выполнено после него
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-go@v4
+    - name: Startup
+      run: |
+        go build ./cmd/main.go
+        nohup ./main & disown
+    - name: Test
+      run: |
+        go test -v ./tests/...
+  
+  # Задание проверяет код на соответствие стилю и отсутствие логических ошибок
+  lint:
+    # Задание "lint" зависит от заданий "tests" и "tests-race" и будет выполнено после них
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+      # Используется действие "golangci/golangci-lint-action@v3", которое запускает линтер. Он проверит код на соответствие стилю и отсутствие логических ошибок
+      - uses: golangci/golangci-lint-action@v3

@@ -1,6 +1,7 @@
-FROM ubuntu:latest
+FROM golang:alpine
 WORKDIR /app
-COPY . ./
+COPY . .
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./cmd/main.go
 EXPOSE 7540
-RUN apt-get update
-CMD [ "./cmd/scheduler" ]
+CMD [ "./main" ]

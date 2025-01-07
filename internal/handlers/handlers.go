@@ -56,7 +56,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp, _ = json.Marshal(Result{Error: err.Error()})
 		log.Println(err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
 		return
 	}
