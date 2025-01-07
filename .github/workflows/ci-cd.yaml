@@ -2,9 +2,9 @@ name: Scheduler
 
 on:
   push:
-    branches: ["main", "ci-cd"]
+    branches: ["main", "dev"]
   pull_request:
-    branches: [ "ci-cd" ]
+    branches: [ "dev" ]
 
 jobs:
 
