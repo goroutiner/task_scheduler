@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"go_final_project/internal/services"
+	"go_final_project/internal/entities"
 	"testing"
 	"time"
 
@@ -24,7 +24,7 @@ func count(db *sqlx.DB) (int, error) {
 }
 
 func openDB(t *testing.T) *sqlx.DB {
-	envFile := services.EnvMap["TODO_DBFILE"]
+	envFile := entities.EnvMap["TODO_DBFILE"]
 	dbfile := DBFile
 	if len(envFile) > 0 {
 		dbfile = envFile

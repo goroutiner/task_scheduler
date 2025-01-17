@@ -13,10 +13,8 @@ import (
 )
 
 func getURL(path string) string {
-	port := Port
-
 	path = strings.TrimPrefix(strings.ReplaceAll(path, `\`, `/`), "../ui/")
-	return fmt.Sprintf("http://localhost:%d/%s", port, path)
+	return fmt.Sprintf("http://localhost:%d/%s", Port, path)
 }
 
 func getBody(path string) ([]byte, error) {

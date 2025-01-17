@@ -4,29 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"go_final_project/internal/database"
+	"go_final_project/internal/entities"
 	"go_final_project/internal/services"
 	"io"
 	"log"
 	"net/http"
 	"time"
 )
-
-// Task является структкурой необходимой для сериализации и десериализации задачи.
-type Task struct {
-	Id      string `json:"id,omitempty"`
-	Date    string `json:"date,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Comment string `json:"comment,omitempty"`
-	Repeat  string `json:"repeat,omitempty"`
-}
-
-// Result является структкурой необходимой для сериализации http ответа сревера.
-type Result struct {
-	Tasks []Task `json:"tasks"`
-	Id    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
-	Token string `json:"token,omitempty"`
-}
 
 var Db *sql.DB
 
@@ -45,7 +29,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 
 	data, err := io.ReadAll(body)
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		log.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
@@ -54,7 +38,7 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(data, &takenMap)
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		log.Println(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
@@ -63,13 +47,13 @@ func Authorization(w http.ResponseWriter, r *http.Request) {
 
 	signedToken, err = services.GetJWT(takenMap)
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		log.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		return
 	}
-	resp, _ = json.Marshal(Result{Token: signedToken})
+	resp, _ = json.Marshal(entities.Result{Token: signedToken})
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Write(resp)
@@ -104,13 +88,13 @@ func GetNextDate(w http.ResponseWriter, r *http.Request) {
 func GetTasks(w http.ResponseWriter, r *http.Request) {
 	var (
 		err   error
-		tasks = []Task{}
+		tasks = []entities.Task{}
 		resp  []byte
 	)
 
 	tasksTmp, err := services.GetTasks(Db, r)
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())
@@ -118,9 +102,9 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, v := range tasksTmp {
-		tasks = append(tasks, Task{Id: v.Id, Date: v.Date, Title: v.Title, Comment: v.Comment, Repeat: v.Repeat})
+		tasks = append(tasks, entities.Task{Id: v.Id, Date: v.Date, Title: v.Title, Comment: v.Comment, Repeat: v.Repeat})
 	}
-	resp, _ = json.Marshal(Result{Tasks: tasks})
+	resp, _ = json.Marshal(entities.Result{Tasks: tasks})
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Write(resp)
@@ -136,14 +120,14 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		task database.Task
+		task entities.Task
 		resp []byte
 		id   string
 		err  error
 	)
 
 	if r.FormValue("id") == "" {
-		resp, _ = json.Marshal(Result{Error: "id не указан или указан некорректно"})
+		resp, _ = json.Marshal(entities.Result{Error: "id не указан или указан некорректно"})
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
 		log.Println("Id не указан или указан некорректно")
@@ -153,7 +137,7 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 	id = r.FormValue("id")
 	task, err = database.SearchTask(Db, id)
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())
@@ -163,7 +147,7 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 	if task.Repeat != "" {
 		nextDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
-			resp, _ = json.Marshal(Result{Error: err.Error()})
+			resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(resp)
 			log.Println(err.Error())
@@ -180,7 +164,7 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 
 		err = updateTask.UpdateTask(Db)
 		if err != nil {
-			resp, _ = json.Marshal(Result{Error: err.Error()})
+			resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(resp)
 			log.Println(err.Error())
@@ -189,7 +173,7 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 	} else {
 		err = database.DeleteTask(Db, id)
 		if err != nil {
-			resp, _ = json.Marshal(Result{Error: err.Error()})
+			resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write(resp)
 			log.Println(err.Error())
@@ -197,7 +181,7 @@ func DoneTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, _ = json.Marshal(Task{})
+	resp, _ = json.Marshal(entities.Task{})
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Write(resp)
 }
@@ -211,23 +195,23 @@ func UpdateTasks(w http.ResponseWriter, r *http.Request) {
 		id   string
 		resp []byte
 		err  error
-		task database.Task
+		task entities.Task
 	)
 
 	switch r.Method {
 	case http.MethodPost:
 		id, err = services.PostTask(Db, w, r)
-		resp, _ = json.Marshal(Result{Id: id})
+		resp, _ = json.Marshal(entities.Result{Id: id})
 	case http.MethodGet:
 		task, err = services.GetTask(Db, w, r)
-		resp, _ = json.Marshal(Task{Id: task.Id, Date: task.Date, Title: task.Title, Comment: task.Comment, Repeat: task.Repeat})
+		resp, _ = json.Marshal(entities.Task{Id: task.Id, Date: task.Date, Title: task.Title, Comment: task.Comment, Repeat: task.Repeat})
 	case http.MethodPut:
 		resp, err = services.EditTask(Db, w, r)
 	case http.MethodDelete:
 		resp, err = services.DeleteTask(Db, w, r)
 	}
 	if err != nil {
-		resp, _ = json.Marshal(Result{Error: err.Error()})
+		resp, _ = json.Marshal(entities.Result{Error: err.Error()})
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(resp)
 		log.Println(err.Error())

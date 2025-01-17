@@ -4,22 +4,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"go_final_project/internal/entities"
 	"log"
 	"os"
 	"time"
 )
 
-type Task struct {
-	Id      string `json:"id,omitempty"`
-	Date    string `json:"date,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Comment string `json:"comment,omitempty"`
-	Repeat  string `json:"repeat,omitempty"`
-}
-
-type TasksStore struct {
-	Db *sql.DB
-}
+type Task entities.Task
 
 // CheckAndGetDB проверяет наличие БД с указанным именем, если нет, то создастся.
 func CheckAndGetDB(fileName string) (*sql.DB, error) {
@@ -82,10 +73,10 @@ func (tasks *Task) PostTask(db *sql.DB) (string, error) {
 }
 
 // GetTasks получат все задач из таблицы scheduler.
-func GetTasks(db *sql.DB) ([]Task, error) {
+func GetTasks(db *sql.DB) ([]entities.Task, error) {
 	var (
-		task  Task
-		tasks = []Task{}
+		task  entities.Task
+		tasks = []entities.Task{}
 	)
 
 	rows, err := db.Query(`SELECT * FROM scheduler ORDER BY date`)
@@ -113,10 +104,10 @@ func GetTasks(db *sql.DB) ([]Task, error) {
 // SearchTasks находит все задачи, содержащие строку или подстроку target
 // в полях title или comment таблицы scheduler, если в url запроса есть параметр
 // search (...?search=...). Если парметр не указан, то получаем все имеющиеся задачи.
-func SearchTasks(db *sql.DB, target string) ([]Task, error) {
+func SearchTasks(db *sql.DB, target string) ([]entities.Task, error) {
 	var (
-		task  Task
-		tasks = []Task{}
+		task  entities.Task
+		tasks = []entities.Task{}
 	)
 
 	if date, err := time.Parse("02.01.2006", target); err == nil {
@@ -169,16 +160,16 @@ func SearchTasks(db *sql.DB, target string) ([]Task, error) {
 }
 
 // SearchTask получает задачу с переданным id из таблицы scheduler.
-func SearchTask(db *sql.DB, id string) (Task, error) {
-	var task Task
+func SearchTask(db *sql.DB, id string) (entities.Task, error) {
+	var task entities.Task
 
 	row := db.QueryRow("SELECT * FROM scheduler WHERE id = ?", id)
 	if err := row.Err(); err != nil {
-		return Task{}, err
+		return entities.Task{}, err
 	}
 
 	if err := row.Scan(&task.Id, &task.Date, &task.Title, &task.Comment, &task.Repeat); err != nil {
-		return Task{}, err
+		return entities.Task{}, err
 	}
 
 	return task, nil

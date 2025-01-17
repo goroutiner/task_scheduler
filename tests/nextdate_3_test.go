@@ -53,9 +53,7 @@ func TestNextDate(t *testing.T) {
 		}
 	}
 	check()
-	if !FullNextDate {
-		return
-	}
+
 	tbl = []nextDate{
 		{"20231106", "m 13", "20240213"},
 		{"20240120", "m 40,11,19", ""},

@@ -4,23 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"go_final_project/internal/database"
+	"go_final_project/internal/entities"
 	"net/http"
 )
 
-type Task struct {
-	Id      string `json:"id,omitempty"`
-	Date    string `json:"date,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Comment string `json:"comment,omitempty"`
-	Repeat  string `json:"repeat,omitempty"`
-}
-
 // GetTasks получает задачи, содержащие строку или подсторку,
 // полученную из параметров запроса.
-func GetTasks(db *sql.DB, r *http.Request) ([]database.Task, error) {
+func GetTasks(db *sql.DB, r *http.Request) ([]entities.Task, error) {
 	var (
 		target string
-		tasks  = []database.Task{}
+		tasks  = []entities.Task{}
 		err    error
 	)
 
@@ -42,21 +35,21 @@ func GetTasks(db *sql.DB, r *http.Request) ([]database.Task, error) {
 }
 
 // GetTask получает задачу по id, полученного из параметров запроса.
-func GetTask(db *sql.DB, w http.ResponseWriter, r *http.Request) (database.Task, error) {
+func GetTask(db *sql.DB, w http.ResponseWriter, r *http.Request) (entities.Task, error) {
 	var (
-		task database.Task
+		task entities.Task
 		id   string
 		err  error
 	)
 
 	if r.FormValue("id") == "" {
-		return database.Task{}, errors.New("the id is not specified or is specified not correctly")
+		return entities.Task{}, errors.New("the id is not specified or is specified not correctly")
 	}
 
 	id = r.FormValue("id")
 	task, err = database.SearchTask(db, id)
 	if err != nil {
-		return database.Task{}, err
+		return entities.Task{}, err
 	}
 
 	return task, nil

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"go_final_project/internal/database"
+	"go_final_project/internal/entities"
 	"io"
 	"net/http"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 // PostTask добавляет задачу с параметрами, полученными из тела запроса, в таблицу scheduler.
 func PostTask(db *sql.DB, w http.ResponseWriter, r *http.Request) (string, error) {
 	var (
-		newTask Task
+		newTask entities.Task
 		id      string
 		data    []byte
 		err     error
@@ -76,7 +77,7 @@ func PostTask(db *sql.DB, w http.ResponseWriter, r *http.Request) (string, error
 // EditTask изменяет пармаетры задачи, полученные из тела запроса, в таблице scheduler.
 func EditTask(db *sql.DB, w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	var (
-		oldTask    Task
+		oldTask    entities.Task
 		err        error
 		data, resp []byte
 	)
@@ -136,7 +137,7 @@ func EditTask(db *sql.DB, w http.ResponseWriter, r *http.Request) ([]byte, error
 		return nil, err
 	}
 
-	resp, _ = json.Marshal(Task{})
+	resp, _ = json.Marshal(entities.Task{})
 	return resp, nil
 }
 
@@ -158,6 +159,6 @@ func DeleteTask(db *sql.DB, w http.ResponseWriter, r *http.Request) ([]byte, err
 		return nil, err
 	}
 
-	resp, _ = json.Marshal(Task{})
+	resp, _ = json.Marshal(entities.Task{})
 	return resp, nil
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/sha256"
 	"errors"
+	"go_final_project/internal/entities"
 	"log"
 	"net/http"
 
@@ -18,7 +19,7 @@ func CheckJWT(next http.HandlerFunc) http.HandlerFunc {
 			jwtToken *jwt.Token
 		)
 
-		password := EnvMap["TODO_PASSWORD"]
+		password := entities.EnvMap["TODO_PASSWORD"]
 
 		if len(password) == 0 {
 			log.Println("Environment variable TODO_PASSWORD is not found")
@@ -85,7 +86,7 @@ func GetJWT(takenMap map[string]string) (string, error) {
 	)
 
 	password := takenMap["password"]
-	if EnvMap["TODO_PASSWORD"] != password {
+	if entities.EnvMap["TODO_PASSWORD"] != password {
 		return "", errors.New("wrong password")
 	}
 	secret := []byte("secret_key")
