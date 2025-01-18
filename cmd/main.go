@@ -38,7 +38,7 @@ func main() {
 
 	mux.HandleFunc("/api/signin", handlers.Authorization)
 	mux.HandleFunc("/api/tasks", services.CheckJWT(handlers.GetTasks))
-	mux.HandleFunc("/api/tgiask", services.CheckJWT(handlers.UpdateTasks))
+	mux.HandleFunc("/api/task", services.CheckJWT(handlers.UpdateTasks))
 	mux.HandleFunc("/api/nextdate", handlers.GetNextDate)
 	mux.HandleFunc("/api/task/done", services.CheckJWT(handlers.DoneTask))
 
