@@ -1,49 +1,62 @@
-name: Scheduler
+name: Task Scheduler
 
 on:
   push:
     branches: ["main", "dev"]
   pull_request:
-    branches: [ "dev" ]
+    branches: ["dev"]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-      with:
-        cache-dependency-path: |
-          **/go.mod 
-    - name: Build
-      run: |
-        go build ./cmd/main.go
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          cache-dependency-path: |
+            **/go.mod
+      - name: Build
+        run: |
+          go build ./cmd/main.go
 
-  tests:
+  test:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-    - name: Startup
-      run: |
-        go build ./cmd/main.go
-        nohup ./main & 
-    - name: Test
-      run: |
-        go test -run ^TestDB$ ./tests
-        go test -run ^TestAddTask$ ./tests
-        go test -run ^TestTasks$ ./tests
-        go test -run ^TestTask$ ./tests
-        go test -run ^TestEditTask$ ./tests
-        go test -run ^TestDone$ ./tests
-        go test -run ^TestDelTask$ ./tests
-        
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+
+      - name: Start PostgreSQL Container
+        run: |
+          docker build -t psql_test:test internal/storage/database/.
+          docker run -p 5432:5432 -d psql_test:test
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..10}; do
+            pg_isready -h localhost -U user -d test_db && break
+            echo "Waiting for database..."
+            sleep 3
+          done
+
+      - name: Run Vet Test
+        run: |
+          go vet ./...
+
+      - name: Run Unit Tests
+        run: |
+          go test -v ./internal/services/... 
+          go test -v ./internal/storage/memory/...
+
+      - name: Run Integration Tests
+        run: |
+          go test -v ./internal/handlers/... 
+          go test -v ./internal/storage/database/...
+
   deploy:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
-    needs: tests
+    needs: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,7 +74,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5.5.1
         with:
-          images: alexey75/scheduler
+          images: alexey75/task_scheduler
 
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5

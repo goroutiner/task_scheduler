@@ -1,0 +1,41 @@
+services:
+  golang:
+    build: .
+    container_name: go-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: ":7540"
+      MODE: "postgres"
+      DATABASE_URL: "postgres://root:password@postgres:5432/mydb?sslmode=disable"
+      PASSWORD: "qwerty12345678"
+    ports:
+      - "7540:7540"
+    networks:
+      - my-network
+    tty: true
+  postgres:
+    image: postgres:latest
+    container_name: my-postgres
+    environment:
+      POSTGRES_USER: "root"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "mydb"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - my-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d mydb"]
+      interval: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres-data:
+
+networks:
+  my-network:

@@ -3,26 +3,29 @@ package services
 import (
 	"crypto/sha256"
 	"errors"
-	"go_final_project/internal/entities"
 	"log"
 	"net/http"
+	"task_scheduler/internal/config"
 
 	"github.com/golang-jwt/jwt"
 )
 
-// CheckJWT проверяет токен, полученный из тела запроса, на валидность.
+type AuthService struct{}
+
+func GetAuthService() *AuthService {
+	return &AuthService{}
+}
+
+// CheckJWTMiddleware проверяет токен, полученный из тела запроса, на валидность.
 // Проверка происходит с помощью secret key и сравнения checksum паролей.
-func CheckJWT(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func CheckJWTMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var (
 			jwtVal   string
 			jwtToken *jwt.Token
 		)
 
-		password := entities.EnvMap["TODO_PASSWORD"]
-
-		if len(password) == 0 {
-			log.Println("Environment variable TODO_PASSWORD is not found")
+		if len(config.Password) == 0 {
 			next(w, r)
 			return
 		}
@@ -35,35 +38,43 @@ func CheckJWT(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		jwtVal = cookie.Value
-		jwtToken, _ = jwt.Parse(jwtVal, func(t *jwt.Token) (interface{}, error) {
+		jwtToken, err = jwt.Parse(jwtVal, func(t *jwt.Token) (interface{}, error) {
 			secret := []byte("secret_key")
 			return secret, nil
 		})
+		if err != nil {
+			log.Println("Failed to parse jwt from cookie")
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 
 		payLoad, ok := jwtToken.Claims.(jwt.MapClaims)
 		if !ok {
 			log.Println("Failed to typecast to jwt.MapClaims")
 			http.Error(w, "Authentication required", http.StatusUnauthorized)
 			return
-
 		}
 
-		checksumRow := payLoad["sum"]
-		sum := sha256.Sum256([]byte(password))
-		checksum, ok := checksumRow.([]interface{})
+		checkSum, ok := payLoad["sum"].([]interface{})
 		if !ok {
 			log.Println("Failed to typecast to checksum")
 			http.Error(w, "Authentication required", http.StatusUnauthorized)
 			return
 		}
 
-		if len(checksum) == len(sum) {
-			for i, v := range sum {
-				if elemSum, ok := checksum[i].(byte); ok && elemSum != v {
-					log.Println("Checksum is not valid")
-					http.Error(w, "Authentication required", http.StatusUnauthorized)
-					return
-				}
+		sum := sha256.Sum256([]byte(config.Password))
+
+		if len(checkSum) != len(sum) {
+			log.Println("Checksum is not valid")
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+
+		for i, v := range sum {
+			if elemSum, ok := checkSum[i].(byte); ok && elemSum != v {
+				log.Println("Checksum is not valid")
+				http.Error(w, "Authentication required", http.StatusUnauthorized)
+				return
 			}
 		}
 
@@ -73,31 +84,27 @@ func CheckJWT(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		next(w, r)
-	})
+	}
 }
 
-// GetJWT генерирует JWT токен, используя TODO_PASSWORD из переменных окружения и
+// GetJWT генерирует JWT токен, используя PASSWORD из переменных окружения и
 // checksum пароля, вложенного в Claims токена.
-func GetJWT(takenMap map[string]string) (string, error) {
+func (a *AuthService) GetJWT(password string) (string, error) {
 	var (
 		signedToken string
 		jwtToken    *jwt.Token
 		err         error
 	)
 
-	password := takenMap["password"]
-	if entities.EnvMap["TODO_PASSWORD"] != password {
+	if config.Password != password {
 		return "", errors.New("wrong password")
 	}
+
 	secret := []byte("secret_key")
 
 	jwtToken = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"sum": sha256.Sum256([]byte(password))})
 
 	signedToken, err = jwtToken.SignedString(secret)
-	if err != nil {
-		log.Println(err.Error())
-		return "", err
-	}
 
-	return signedToken, nil
+	return signedToken, err
 }

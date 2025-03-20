@@ -1,50 +1,65 @@
 package main
 
 import (
-	"fmt"
-	"go_final_project/internal/database"
-	"go_final_project/internal/entities"
-	"go_final_project/internal/handlers"
-	"go_final_project/internal/services"
+	"task_scheduler/internal/config"
+	"task_scheduler/internal/entities"
+	"task_scheduler/internal/handlers"
+	"task_scheduler/internal/services"
+	"task_scheduler/internal/storage"
+	"time"
+
 	"log"
 	"net/http"
-
-	"github.com/joho/godotenv"
-	_ "modernc.org/sqlite"
 )
 
 func main() {
-	err := godotenv.Overload(".env")
-	if err != nil {
-		log.Fatalln(err.Error())
+	var store *storage.Storage
+
+	switch config.Mode {
+	case "sqlite":
+		db, err := storage.NewSqliteStore(entities.DbFile)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		defer db.Close()
+
+		store = storage.NewDatabaseConection(db)
+		log.Println("Using SQLite storage")
+	case "postgres":
+		db, err := storage.NewPostgresStore(config.PsqlUrl)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		defer db.Close()
+
+		store = storage.NewDatabaseConection(db)
+		log.Println("Using PostgreSQL store")
+	default:
+		log.Fatalf("config.Mode is empty in /internal/config/setting.go")
 	}
 
-	entities.EnvMap, err = godotenv.Read(".env")
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	dbName := entities.EnvMap["TODO_DBFILE"]
-	handlers.Db, err = database.CheckAndGetDB(dbName)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-	defer handlers.Db.Close()
+	taskService := services.GetTaskService(store)
+	authService := services.GetAuthService()
 
 	mux := http.NewServeMux()
 
-	uiDir := entities.EnvMap["TODO_UIDIR"]
-	mux.Handle("/", http.FileServer(http.Dir(uiDir)))
+	mux.Handle("/", http.FileServer(http.Dir(entities.UiDir)))
 
-	mux.HandleFunc("/api/signin", handlers.Authorization)
-	mux.HandleFunc("/api/tasks", services.CheckJWT(handlers.GetTasks))
-	mux.HandleFunc("/api/task", services.CheckJWT(handlers.UpdateTasks))
-	mux.HandleFunc("/api/nextdate", handlers.GetNextDate)
-	mux.HandleFunc("/api/task/done", services.CheckJWT(handlers.DoneTask))
+	mux.HandleFunc("GET /api/nextdate", handlers.GetNextDate(taskService))
+	mux.HandleFunc("/api/task", services.CheckJWTMiddleware(handlers.UpdateTasks(taskService)))
+	mux.HandleFunc("GET /api/tasks", services.CheckJWTMiddleware(handlers.GetTasks(taskService)))
+	mux.HandleFunc("POST /api/task/done", services.CheckJWTMiddleware(handlers.DoneTask(taskService)))
+	mux.HandleFunc("POST /api/signin", handlers.Authentication(authService))
 
+	serv := &http.Server{
+		Addr:         config.Port,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 	log.Println("Scheduler is running ...")
-	port := fmt.Sprintf(":%s", entities.EnvMap["TODO_PORT"])
-	if err := http.ListenAndServe(port, mux); err != nil {
+	if err := serv.ListenAndServe(); err != nil {
 		log.Fatalf("error when starting the server: %s\n", err.Error())
 	}
 }
