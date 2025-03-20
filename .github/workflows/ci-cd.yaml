@@ -25,20 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-
-      - name: Start PostgreSQL Container
-        run: |
-          docker build -t psql_test:test internal/storage/database/.
-          docker run -p 5432:5432 -d psql_test:test
-
-      - name: Wait for PostgreSQL
-        run: |
-          for i in {1..10}; do
-            pg_isready -h localhost -U user -d test_db && break
-            echo "Waiting for database..."
-            sleep 3
-          done
-
       - name: Run Vet Test
         run: |
           go vet ./...
