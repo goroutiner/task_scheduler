@@ -1,3 +1,4 @@
+
 ## 📖 Translations
 - [Read in Russian](/README_RU.md)
 
@@ -35,6 +36,7 @@
 - ✔️ Search and delete tasks functionality.
 
 ---
+
 
 ### 🔧 Environment Configuration
 
