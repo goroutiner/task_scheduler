@@ -1,49 +1,43 @@
-name: Scheduler
+name: Task Scheduler
 
 on:
   push:
     branches: ["main", "dev"]
   pull_request:
-    branches: [ "dev" ]
+    branches: ["dev"]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-      with:
-        cache-dependency-path: |
-          **/go.mod 
-    - name: Build
-      run: |
-        go build ./cmd/main.go
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          cache-dependency-path: |
+            **/go.mod
+      - name: Build
+        run: |
+          go build ./cmd/main.go
 
-  tests:
+  test:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-    - name: Startup
-      run: |
-        go build ./cmd/main.go
-        nohup ./main & 
-    - name: Test
-      run: |
-        go test -run ^TestDB$ ./tests
-        go test -run ^TestAddTask$ ./tests
-        go test -run ^TestTasks$ ./tests
-        go test -run ^TestTask$ ./tests
-        go test -run ^TestEditTask$ ./tests
-        go test -run ^TestDone$ ./tests
-        go test -run ^TestDelTask$ ./tests
-        
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+      - name: Run Vet Test
+        run: |
+          go vet ./...
+
+      - name: Run Unit Tests
+        run: |
+          go test -v ./internal/services/... 
+          go test -v ./internal/handlers/...
+
   deploy:
     name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
-    needs: tests
+    needs: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,7 +55,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5.5.1
         with:
-          images: alexey75/scheduler
+          images: alexey75/task_scheduler
 
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5

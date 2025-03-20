@@ -1,21 +1,24 @@
 package entities
 
-// Task является структкурой задачи.
+// Task является структурой задачи.
 type Task struct {
-	Id      string `json:"id,omitempty"`
-	Date    string `json:"date,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Comment string `json:"comment,omitempty"`
-	Repeat  string `json:"repeat,omitempty"`
+	Id      string `json:"id,omitempty" db:"id"`
+	Date    string `json:"date,omitempty" db:"date"`
+	Title   string `json:"title,omitempty" db:"title"`
+	Comment string `json:"comment,omitempty" db:"comment"`
+	Repeat  string `json:"repeat,omitempty" db:"repeat"`
 }
 
-// Result является структкурой необходимой для сериализации http ответа сревера.
+// Result является структурой необходимой для сериализации http ответа сервера.
 type Result struct {
-	Tasks []Task `json:"tasks"`
+	Tasks []Task `json:"tasks,omitempty"`
 	Id    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 	Token string `json:"token,omitempty"`
 }
 
-// EnvMap словарь для хранения всех переменные окружения из .env.
-var EnvMap map[string]string
+var (
+	TableName = "scheduler"
+	UiDir     = "ui"
+	DbFile    = "scheduler.db"
+)

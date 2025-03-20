@@ -1,6 +1,12 @@
+
+## 📖 Translations
+- [Read in Russian](/README_RU.md)
+
+---
+
 <h3 align="center">
   <div align="center">
-    <h1>Task Scheduler </h1>
+    <h1>Task Scheduler</h1>
   </div>
   <a href="https://github.com/goroutiner/task_scheduler">
     <img src="https://i.pinimg.com/736x/3e/5b/3a/3e5b3a55a757aa664704f6f33f2c1c4b.jpg" width="600" height="400"/>
@@ -8,77 +14,103 @@
 </h3>
 
 ---
-## 📋 Описание проекта
 
-**Task Scheduler** — это простое и интуитивно понятное веб-приложение для планирования задач, разработанное для помощи пользователям в организации их повседневных дел. С помощью нашего приложения вы сможете:
+## 📋 Project Description
 
-- создавать и редактировать задачи
-- устанавливать цикл повтора и сроки выполнения
-- изменять статус задач 
-- организовывать задачи по дате выполнения
-- управлять задачами с помощью удобного интерфейса
+**Task Scheduler** is a simple and intuitive web application for task planning, designed to help users organize their daily tasks. With this application, you can:
 
----
-## Что реализовано в приложении?
-
-- ✔️ Реализован функционал создания задач
-- ✔️ Добавлена возможность редактирования задач
-- ✔️ Интеграция баз данных для хранения задач
-- ✔️ Простой и привлекательный интерфейс
-- ✔️ Реализована функция поиска и удаления задач
-
----
-## 📔 Инструкция по запуску приложения локально
-
-#### 1. Перед запуском необходимо настроить переменные окружения, находящиеся в корне проекта в файле .env:
-- Укажите желаемый порт прослушивания сервера в переменной `TODO_PORT`
-- Укажите свой пароль для авторизации в переменной `TODO_PASSWORD`
-#### 2. Если вы находитесь в корне проекта выполните команду для запуска приложения `go run cmd/main.go`
-
-#### Теперь вы можете открыть приложение в браузере по адресу: [http://localhost:7540](http://localhost:7540/ "Порт указываете тот, который укзан в TODO_PORT"). 
-
----
-## ✅⭕ Инструкция по запуску тестов 
-
-В файле `tests/setting.go` находятся конфигурационные параметры для тестов. 
-- Порт должен быть такой же, как и в файле `.env`
-- Токен нужно изменить, если будет другой пароль или другой секретный ключ для подписи  
-
-#### Для запуска тестов выполните команду `go test ./tests/...`
+- Create and edit tasks.
+- Set recurrence cycles and deadlines.
+- Change task statuses.
+- Organize tasks by due date.
+- Manage tasks through a user-friendly interface.
 
 ---
 
-## 📦 Инструкция по сборке и запуску приложения через Docker
+## What is implemented in the application?
 
-Если вы хотите запустить проект через Docker, следуйте этим шагам:
+- ✔️ Task creation functionality.
+- ✔️ Ability to edit tasks.
+- ✔️ Database integration for task storage.
+- ✔️ Simple and attractive interface.
+- ✔️ Search and delete tasks functionality.
 
-1. Убедитесь, что у вас установлен Docker.
-2. Для сборки docker образа проекта необходимо находиться в корне проекта.
-3. Соберем образ, выполнив эту команду в терминале:
+---
 
-```
-docker build --tag scheduler-app:v1 .
+
+### 🔧 Environment Configuration
+
+The **environment** variables are set by default, but you can change them in the `compose.yaml` file:
+
+- For the `golang` service:
+
+```yaml
+...
+environment:
+    PORT: ":7540"
+    MODE: "postgres"
+    DATABASE_URL: "postgres://root:password@postgres:5432/mydb?sslmode=disable"
+    PASSWORD: "qwerty12345678"
+...
 ```
 
-4. Теперь, когда образ собран можно запускать контейнер на внешнем порту **7540** выполнив команду в терминале:
+If you need **SQLite** mode, specify `MODE: "sqlite"`.
 
-```
-docker run -it -p 7540:7540 scheduler-app:v1
-```
+- For the `postgres` service:
 
- После запуска вы можете получить доступ к приложению по адресу: http://localhost:7540/login.html. Пароль для авторизации указывается тот, который задан в переменной окружения `TODO_PASSWORD`
+```yaml
+...
+environment:
+  POSTGRES_USER: "root"
+  POSTGRES_PASSWORD: "password"
+  POSTGRES_DB: "mydb"
+...
+```
 
 ---
 
-## 🛠️ Технические ресурсы
+## ✅⭕ Running Tests
 
-- **Библиотека для взаимодействия с JWT-токеном:** [golang-jwt/jwt](https://github.com/golang-jwt/jwt).
-- **Библиотека для взаимодействия с переменными окружения:** [joho/godotenv](https://github.com/joho/godotenv)  
-- **Библиотеки для взаимодействия с БД:** [cznic/sqlite](https://gitlab.com/cznic/sqlite) и [jmoiron/sqlx](https://github.com/jmoiron/sqlx)
-- **Библиотека для написания тестов:** [stretchr/testify](https://github.com/stretchr/testify)
+To run integration tests, execute the following command:
+
+```sh
+make unit-tests
+```
 
 ---
 
-# Заключение
+## 🐳 Running with Docker
 
- Спасибо за использование **Task Scheduler** 🤝 Надеюсь, что приложение поможет вам более организованно управлять вашим временем и задачами 😉
+If you want to run the project using Docker, follow these steps:
+
+1. Make sure Docker is installed and running.
+2. Navigate to the project's root directory.
+3. Build and run the application using the command:
+   - By default, the application will use **PostgreSQL**. You can change this in the `compose.yaml` file.
+
+```sh
+make run
+```
+
+4. Once the application is running, you can access it in your browser at [http://localhost:7540/login.html](http://localhost:7540/login.html) (if you used a custom port, specify it).
+
+---
+
+## 🛠️ Technical Resources
+
+- **Programming Language**: Go (Golang)
+- **Databases**: PostgreSQL, SQLite
+- **Libraries**:
+  - [golang-jwt/jwt](https://github.com/golang-jwt/jwt) for JWT token handling.
+  - [joho/godotenv](https://github.com/joho/godotenv) for environment variable management.
+  - [jmoiron/sqlx](https://github.com/jmoiron/sqlx) for database interaction.
+  - [github.com/jackc/pgx/v5/stdlib](https://github.com/jackc/pgx) and [modernc.org/sqlite](https://gitlab.com/cznic/sqlite) drivers for PostgreSQL and SQLite.
+  - [stretchr/testify](https://github.com/stretchr/testify) for testing.
+
+---
+
+## Conclusion
+
+Thank you for using **Task Scheduler** 🤝 The application will continue to be supported, and more features will be added in the future 💫
+
+---

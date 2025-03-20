@@ -2,14 +2,12 @@ package services
 
 import (
 	"errors"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
 var (
-	nextDate time.Time
 	// Словарь связывающий навзания недель с их порядковым номером
 	weekStore = map[string]int{
 		"Monday":    1,
@@ -20,286 +18,165 @@ var (
 		"Saturday":  6,
 		"Sunday":    7,
 	}
+
 	errInvalidFormat = errors.New("invalid `repeat` format")
 )
 
-// NextDate вычисляет следующую дату для повторного выполнения задачи следуя правилам,
-// которые реализуют внутренние функции.
-func NextDate(now time.Time, date string, repeat string) (string, error) {
+// GetNextDate вычисляет следующую дату относительно заданной, в соответствии в правилом повторения.
+func (s *TaskService) GetNextDate(now time.Time, date string, repeat string) (string, error) {
+	var nextDate string
+
 	dateTime, err := time.Parse("20060102", date)
 	if err != nil {
 		return "", err
 	}
 
-	// Это присвоения необходимы для parseWeekday и parseMonth
-	if now.Before(dateTime) {
-		nextDate = dateTime
-	} else {
-		nextDate = now
-	}
-
 	elems := strings.Fields(repeat)
 	if len(elems) == 0 {
-		return "", errors.New("repeat is empty row")
+		return "", errInvalidFormat
 	}
-
-	var nextDate string
 
 	switch elems[0] {
 	case "d":
-		nextDate, err = parseDays(now, dateTime, elems)
+		nextDate, err = nextDateByDay(now, dateTime, elems)
 	case "y":
-		nextDate, err = parseYears(now, dateTime, elems)
+		nextDate, err = nextDateByYear(now, dateTime)
 	case "w":
-		nextDate, err = parseWeekday(elems)
+		nextDate, err = nextDateByWeekday(now, dateTime, elems)
 	case "m":
-		nextDate, err = parseMonth(elems)
+		nextDate, err = nextDateByDayOfMonth(now, dateTime, elems)
 	default:
 		return "", errInvalidFormat
 	}
 
-	if err != nil {
-		return "", err
-	}
-
-	return nextDate, nil
+	return nextDate, err
 }
 
-// parseDays разбирает слайс elem, чтобы получить число дней для инкриментирования даты.
-func parseDays(now time.Time, date time.Time, elems []string) (string, error) {
+// nextDateByDay получает следующую дату, инкриментируя по дням.
+func nextDateByDay(now time.Time, date time.Time, elems []string) (string, error) {
 	if len(elems) != 2 {
 		return "", errInvalidFormat
 	}
 
-	days, err := strconv.Atoi(elems[1])
-	if err != nil || days > 400 {
+	dayInc, err := strconv.Atoi(elems[1])
+	if err != nil || dayInc < 1 || dayInc > 366 {
 		return "", errInvalidFormat
 	}
 
-	if now.Before(date) {
-		nextDate = nextDate.AddDate(0, 0, days)
-	} else {
-		nextDate = date
-		for now.After(nextDate) {
-			nextDate = nextDate.AddDate(0, 0, days)
+	if date.Before(now) {
+		for date.Before(now) {
+			date = date.AddDate(0, 0, dayInc)
 		}
+	} else {
+		date = date.AddDate(0, 0, dayInc)
 	}
 
-	return nextDate.Format("20060102"), nil
+	return date.Format("20060102"), nil
 }
 
-// parseYears разбирает слайс elem, чтобы получить число лет для инкриментирования даты.
-func parseYears(now time.Time, date time.Time, elems []string) (string, error) {
-	if len(elems) != 1 {
-		return "", errInvalidFormat
+// nextDateByYear получает следующую дату, инкриментируя по годам.
+func nextDateByYear(now time.Time, date time.Time) (string, error) {
+	if date.Before(now) {
+		for date.Before(now) {
+			date = date.AddDate(1, 0, 0)
+		}
+	} else {
+		date = date.AddDate(1, 0, 0)
 	}
 
-	if now.Before(date) {
-		nextDate = nextDate.AddDate(1, 0, 0)
-	} else {
-		nextDate = date
-		for now.After(nextDate) {
-			nextDate = nextDate.AddDate(1, 0, 0)
-		}
-	}
-	return nextDate.Format("20060102"), nil
+	return date.Format("20060102"), nil
 }
 
-// parseWeekday разбирает слайс elem, чтобы получить числа дней недели для ближашего переноса даты.
-func parseWeekday(elems []string) (string, error) {
+// nextDateByWeekday получает следующую дату, в соответствии с днем недели, инкриментируя по дням.
+func nextDateByWeekday(now time.Time, date time.Time, elems []string) (string, error) {
 	if len(elems) != 2 {
 		return "", errInvalidFormat
 	}
 
-	// Получаем список, еще непроверенных, дней
-	var uncheckedDaysList []string
-	if len(elems) > 1 {
-		uncheckedDaysList = strings.Split(elems[1], ",")
-	} else {
-		return "", errInvalidFormat
+	if date.Before(now) {
+		date = now
 	}
 
-	weekDayList := []int{}
+	// Получаем список порядковых номеров дней недели
+	daysOfWeakList := strings.Split(elems[1], ",")
+	dowDir := make(map[int]bool, len(daysOfWeakList))
 	// Проверка на корректность введенных дней недели
-	for _, day := range uncheckedDaysList {
+	for _, dow := range daysOfWeakList {
+		num, err := strconv.Atoi(dow)
+		if err != nil || num < 1 || num > 7 {
+			return "", errInvalidFormat
+		}
+
+		dowDir[num] = true
+	}
+
+	for {
+		date = date.AddDate(0, 0, 1)
+		nameOfDay := date.Weekday().String()
+		if dowDir[weekStore[nameOfDay]] {
+			break
+		}
+	}
+
+	return date.Format("20060102"), nil
+}
+
+// nextDateByDayOfMonth получает следующую дату, в соответствии с днем месяца, инкриментируя по дням.
+func nextDateByDayOfMonth(now time.Time, date time.Time, elems []string) (string, error) {
+	if len(elems) == 1 || len(elems) > 3 {
+		return "", errInvalidFormat
+	}
+
+	if date.Before(now) {
+		date = now
+	}
+
+	daysList := strings.Split(elems[1], ",")
+	dayDir := make(map[int]bool, len(daysList))
+
+	for _, day := range daysList {
 		num, err := strconv.Atoi(day)
-		if err != nil {
+		if err != nil || num > 31 || num == 0 || num < -2 {
 			return "", errInvalidFormat
 		}
 
-		if num < 1 || num > 7 {
-			return "", errInvalidFormat
-		}
-
-		weekDayList = append(weekDayList, num)
+		dayDir[num] = true
 	}
 
-	var weekName, nextWeekName string
+	var monthList []string
+	monthDir := make(map[int]bool)
 
-	weekName = nextDate.Weekday().String()
-
-	// Отсорируем список с днями недель по возрастанию (пригодится на следующем шаге)
-	slices.Sort(weekDayList)
-
-	for _, weekDay := range weekDayList {
-		// Находим ближайший меньший weekDay
-		if weekDay < weekStore[weekName] {
-			nextWeekName = nextDate.Weekday().String()
-
-			// Инкриментируем дату до выбранного ближайшего дня недели
-			for weekStore[nextWeekName] != weekDay {
-				nextDate = nextDate.AddDate(0, 0, 1)
-				nextWeekName = nextDate.Weekday().String()
-			}
-
-			return nextDate.Format("20060102"), nil
-		}
-	}
-
-	// Будет выполнятся в случае если в списке с днями недель все числа будут меньше базового дня.
-	// Инкриментируем дату до первого в списке дня недели,
-	// т.к. список сформирован в порядке возрастания (порядок проверялся этапами выше)
-	for weekStore[nextWeekName] != weekDayList[0] {
-		nextDate = nextDate.AddDate(0, 0, 1)
-		nextWeekName = nextDate.Weekday().String()
-	}
-
-	return nextDate.Format("20060102"), nil
-}
-
-// parseMonth разбирает слайс elem, чтобы получить числа дней месяца для ближашего переноса даты.
-func parseMonth(elems []string) (string, error) {
-	// Получаем список, еще непроверенных, дней
-	var uncheckedDaysList []string
-	if len(elems) > 1 {
-		uncheckedDaysList = strings.Split(elems[1], ",")
-	} else {
-		return "", errInvalidFormat
-	}
-
-	daysList := make([]int, len(uncheckedDaysList))
-
-	// Создадим словарь,
-	// где ключ - это номер дня (пригодится для нахождения ближайшего следующего дня месяца)
-	dictDays := map[int]int{}
-
-	// дата для нахождения последнего и предпоследнего дня текущего месяца
-	tmpDate := time.Date(nextDate.Year(), nextDate.Month(), 1, 0, 0, 0, 0, time.Local)
-	tmpDate = tmpDate.AddDate(0, 1, 0)
-
-	// Проверка введенных дней
-	for i, day := range uncheckedDaysList {
-		dayNum, err := strconv.Atoi(day)
-		if err != nil {
-			return "", errInvalidFormat
-		}
-
-		if dayNum > 31 || dayNum == 0 || dayNum < -2 {
-			return "", errInvalidFormat
-		}
-
-		daysList[i] = dayNum
-	}
-
-	if len(elems) == 2 {
-		// Заполняем словарь с днями, учитывая -1 и -2
-		for _, day := range daysList {
-			switch day {
-			case -1:
-				lastDay := tmpDate.AddDate(0, 0, -1).Day()
-				dictDays[lastDay] = 1
-			case -2:
-				preLastDay := tmpDate.AddDate(0, 0, -2).Day()
-				dictDays[preLastDay] = 1
-			default:
-				dictDays[day] = 1
-			}
-		}
-
-		// Ищем ближашую дату, где день совпадает с тем, что есть в словаре
-		for {
-			nextDate = nextDate.AddDate(0, 0, 1)
-			if _, has := dictDays[nextDate.Day()]; has {
-				break
-			}
-		}
-	} else if len(elems) == 3 {
-		uncheckedMonthList := strings.Split(elems[2], ",")
-		monthList := make([]int, len(uncheckedMonthList))
-
-		// Проверка введенных месяцев
-		for i, month := range uncheckedMonthList {
-			monthNum, err := strconv.Atoi(month)
-			if err != nil {
+	if len(elems) == 3 {
+		monthList = strings.Split(elems[2], ",")
+		for _, month := range monthList {
+			num, err := strconv.Atoi(month)
+			if err != nil || num < 1 || num > 12 {
 				return "", errInvalidFormat
 			}
 
-			if monthNum < 1 || monthNum > 12 {
-				return "", errInvalidFormat
-			}
-
-			monthList[i] = monthNum
+			monthDir[num] = true
 		}
-
-		// Переменная, необхожимая для нахождения минимального интервала времени между датами
-		var minDuration time.Duration
-		// Флаг для обозначения опроного минимума
-		once := true
-
-		// Нахождение минимального итервала
-		for _, day := range daysList {
-			for _, month := range monthList {
-				assistDate := getAssistDate(tmpDate, day, month)
-
-				if nextDate.Before(assistDate) {
-					// Необходимо один раз обозначить опорный минимум
-					if once {
-						minDuration = assistDate.Sub(nextDate)
-						once = false
-					}
-
-					minDuration = min(minDuration, assistDate.Sub(nextDate))
-				}
-			}
-		}
-
-		nextDate = nextDate.Add(minDuration).AddDate(0, 0, 1)
-	} else {
-		return "", errInvalidFormat
 	}
 
-	return nextDate.Format("20060102"), nil
+	for {
+		date = date.AddDate(0, 0, 1)
+		negDay := getNegativeDay(date)
+		if len(elems) == 2 && (dayDir[date.Day()] || dayDir[negDay]) {
+			break
+		}
+
+		if len(elems) == 3 && (dayDir[date.Day()] || dayDir[negDay]) && monthDir[int(date.Month())] {
+			break
+		}
+	}
+
+	return date.Format("20060102"), nil
 }
 
-// getAssistDate получяет опорную дату, необхоодимую для нахождения минимального интервала времени между датами.
-// assistDate - вспомогательная дата;
-// tmpDate - дата необходимая для вычисления последнего и предпоследнего дня месяца.
-func getAssistDate(tmpDate time.Time, day, month int) time.Time {
-	// вспомогательная переменная для нахождения минимального интервала времени между датами
-	var assistDate time.Time
-
-	switch day {
-	case -1:
-		// Если месяц меньше чем в actualDate, то образованная дата переносится на следующий год
-		if month < int(nextDate.Month()) {
-			assistDate = tmpDate.AddDate(1, 0, -1)
-		} else {
-			assistDate = tmpDate.AddDate(0, 0, -1)
-		}
-
-	case -2:
-		if month < int(nextDate.Month()) {
-			assistDate = tmpDate.AddDate(1, 0, -2)
-		} else {
-			assistDate = tmpDate.AddDate(0, 0, -2)
-		}
-	default:
-		if month < int(nextDate.Month()) {
-			assistDate = time.Date(nextDate.Year()+1, time.Month(month), day, 0, 0, 0, 0, time.Local)
-		} else {
-			assistDate = time.Date(nextDate.Year(), time.Month(month), day, 0, 0, 0, 0, time.Local)
-		}
-	}
-
-	return assistDate
+// getNegativeDay вспомогательная функция для получения отрицательного дня по положительному
+// Принцип работы на примере февраля (год не високосный): числа месяца 1, 2 ...  27, 28 соотносятся попарно по порядку,
+// но с инверсией 1 -> 28(-1), 2 -> 27(-2)
+func getNegativeDay(date time.Time) int {
+	tmpDate := time.Date(date.Year(), date.Month()+1, 0, 0, 0, 0, 0, time.Local)
+	return date.Day() - tmpDate.Day() - 1
 }
